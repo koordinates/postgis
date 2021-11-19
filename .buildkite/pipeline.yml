@@ -1,0 +1,31 @@
+---
+steps:
+  - label: ':debian: Build & Package & Test'
+    command: ".buildkite/build.sh"
+    artifact_paths:
+      - "build-focal/*"
+
+  - block: "Release?"
+    prompt: "Release to archive? Check the test results first!"
+
+  - label: ':debian: Publish deb'
+    command:
+      - >
+        aptly-upload
+        --aptly-url https://apt-repo.kx.gd
+        --retries 3
+        --repo kx-builds-focal
+        --series focal
+        build-focal/*.deb
+    retry:
+      automatic: true
+    plugins:
+      artifacts#v1.2.0:
+        download: "build-focal/*.deb"
+      docker#v1.4.0:
+        image: "${ECR}/ci-tools"
+        always-pull: true
+        workdir: /src
+        environment:
+          - APTLY_UNAME
+          - APTLY_PASSWD
