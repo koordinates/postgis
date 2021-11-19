@@ -1,0 +1,3 @@
+Depends: @, postgresql-server-dev-all, postgresql-all
+Tests: test-extension-creation regress
+Restrictions: allow-stderr, skippable

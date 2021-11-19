@@ -1,0 +1,12 @@
+include:
+  - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/salsa-ci.yml
+  - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/pipeline-jobs.yml
+
+variables:
+  RELEASE: 'unstable'
+
+# disable reprotest until clang understands -ffile-prefix-map
+reprotest:
+  only:
+    variables:
+      - $FALSE

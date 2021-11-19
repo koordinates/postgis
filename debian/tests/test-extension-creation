@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -eu
+
+# Skip tests on problematic architectures
+ARCH="$(dpkg-architecture -qDEB_BUILD_ARCH)"
+
+if [ "${ARCH}" = "armel" ] || [ "${ARCH}" = "armhf" ] || [ "${ARCH}" = "mips" ] || [ "${ARCH}" = "mips64el" ] || [ "${ARCH}" = "mipsel" ] || [ "${ARCH}" = "s390x" ] || [ "${ARCH}" = "alpha" ] || [ "${ARCH}" = "hppa" ] || [ "${ARCH}" = "hurd-i386" ] || [ "${ARCH}" = "kfreebsd-i386" ] || [ "${ARCH}" = "powerpc" ] || [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "sparc64" ]; then
+  echo "Skipping tests on problematic architectures"
+  exit 77
+fi
+
+for v in $(pg_buildext installed-versions); do
+	pg_virtualenv -v $v sh -e <<-'EOF'
+	# test extension (fuzzystrmatch is part of postgresql-contrib and is needed by postgis_tiger_geocoder)
+	for ext in postgis postgis_raster postgis_sfcgal fuzzystrmatch postgis_tiger_geocoder postgis_topology address_standardizer address_standardizer_data_us; do
+		psql -eXc "CREATE EXTENSION $ext"
+	done
+	EOF
+done
+
