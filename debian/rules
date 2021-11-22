@@ -25,7 +25,13 @@ endif
 
 include /usr/share/dpkg/architecture.mk
 include /usr/share/dpkg/pkg-info.mk
-include /usr/share/postgresql-common/pgxs_debian_control.mk
+
+debian/control: debian/control.in debian/pgversions
+	pg_buildext checkcontrol
+
+# run check when clean is invoked
+clean: debian/control
+.PHONY: debian/control
 
 # Upstream version (including ~rcN) for symbols version
 UPSTREAM_VERSION := $(shell echo $(DEB_VERSION_UPSTREAM) | sed -e 's/\+.*//')
