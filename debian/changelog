@@ -1,3 +1,17 @@
+postgis (3.1.10dev+kx-ci1-git20230627.9ba32ecd2) focal; urgency=medium
+
+  * Koordinates CI build of 9ba32ecd24c0159d1a47c32f63a5ead9bf50de22:
+    branch=kx-3.1-focal tag=
+
+ -- Koordinates CI Builder <support@koordinates.com>  Mon, 26 Jun 2023 23:53:57 +0000
+
+postgis (3.1.10dev+kx-ci1-git20230627.9ba32ecd2) focal; urgency=medium
+
+  * Koordinates CI build of 9ba32ecd24c0159d1a47c32f63a5ead9bf50de22:
+    branch=kx-3.1-focal tag=
+
+ -- Koordinates CI Builder <support@koordinates.com>  Mon, 26 Jun 2023 23:53:50 +0000
+
 postgis (3.1.1+dfsg-1.pgdg20.04+1) focal-pgdg; urgency=medium
 
   * Rebuild for focal-pgdg.
