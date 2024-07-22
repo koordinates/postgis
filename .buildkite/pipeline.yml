@@ -3,7 +3,7 @@ steps:
   - label: ':debian: Build & Package & Test'
     command: ".buildkite/build.sh"
     artifact_paths:
-      - "build-focal/*"
+      - "build-jammy/*"
 
   - block: "Release?"
     prompt: "Release to archive? Check the test results first!"
@@ -14,14 +14,14 @@ steps:
         aptly-upload
         --aptly-url https://apt-repo.kx.gd
         --retries 3
-        --repo kx-builds-focal
-        --series focal
-        build-focal/*.deb
+        --repo kx-builds-jammy
+        --series jammy
+        build-jammy/*.deb
     retry:
       automatic: true
     plugins:
       artifacts#v1.2.0:
-        download: "build-focal/*.deb"
+        download: "build-jammy/*.deb"
       docker#v1.4.0:
         image: "${ECR}/ci-tools"
         always-pull: true

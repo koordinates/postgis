@@ -41,7 +41,7 @@ time docker run \
   -e DEBEMAIL \
   -e DEBFULLNAME \
   "${ECR}/ci-tools:latest" \
-    dch --distribution focal --newversion "${DEB_VERSION}" "Koordinates CI build of ${BUILDKITE_COMMIT}: branch=${BUILDKITE_BRANCH} tag=${BUILDKITE_TAG-}"
+    dch --distribution jammy --newversion "${DEB_VERSION}" "Koordinates CI build of ${BUILDKITE_COMMIT}: branch=${BUILDKITE_BRANCH} tag=${BUILDKITE_TAG-}"
 
 BUILD_CONTAINER="build-${BUILDKITE_JOB_ID}"
 
@@ -53,7 +53,7 @@ time docker run \
   -v "ccache:/ccache" \
   -e CCACHE_DIR=/ccache \
   -w "/kx/source" \
-  "${ECR}/focalbuild:latest" \
+  "${ECR}/jammybuild:latest" \
     /kx/buildscripts/build_binary_package.sh -uc -us
 
 echo "--- Signing debian archives ..."
@@ -62,4 +62,4 @@ time docker run \
   -e "GPG_KEY=${APT_GPG_KEY}" \
   -w "/src" \
   "${ECR}/ci-tools:latest" \
-    sign-debs "/src/build-focal/*.deb"
+    sign-debs "/src/build-jammy/*.deb"
