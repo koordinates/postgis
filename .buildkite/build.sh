@@ -53,7 +53,7 @@ time docker run \
   -v "ccache:/ccache" \
   -e CCACHE_DIR=/ccache \
   -w "/kx/source" \
-  "${ECR}/jammybuild:latest" \
+  "${ECR}/jammybuild:master.latest" \
     /kx/buildscripts/build_binary_package.sh -uc -us
 
 echo "--- Signing debian archives ..."
