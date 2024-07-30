@@ -1,3 +1,5 @@
+# KX:  I've pulled in the "debian/" folder from https://salsa.debian.org/debian-gis-team/postgis/-/tree/debian/3.4.2+dfsg-2/debian
+
 This file is here to play nicely with modern code repository facilities.
 Actual readme is [here](README.postgis).
 
