@@ -15,7 +15,13 @@ export PG_UPDATECONTROL=yes
 
 include /usr/share/dpkg/architecture.mk
 include /usr/share/dpkg/pkg-info.mk
-include /usr/share/postgresql-common/pgxs_debian_control.mk
+
+debian/control: debian/control.in debian/pgversions 
+	pg_buildext checkcontrol
+
+# run check when clean is invoked
+clean: debian/control
+.PHONY: debian/control
 
 # Ignore testsuite failures on these architectures
 IGNORE_TEST_FAILURE_ARCHS = i386 mips mips64el mipsel s390x alpha hppa hurd-i386 kfreebsd-i386 powerpc ppc64 sparc64
