@@ -1,3 +1,9 @@
+postgis (3.4.2dev+kx-jammy-ci24-git20240806.bb6223ed5) jammy; urgency=medium
+
+  * Build with kx modified gdal and proj
+
+ -- Colin Coghill <colin.coghill@koordinates.com>  Sun, 11 Aug 2024 22:18:20 +0000
+
 postgis (3.4.2+dfsg-2) unstable; urgency=medium
 
   * Drop SFCGAL support, it won't support CGAL 6 any time soon.
