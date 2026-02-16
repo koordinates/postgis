@@ -1,14 +1,13 @@
 ---
 steps:
-  - label: ':debian: Build & Package & Test'
+  - label: ":debian: Build & Package & Test"
+    key: build
     command: ".buildkite/build.sh"
     artifact_paths:
       - "build-jammy/*"
 
-  - block: "Release?"
-    prompt: "Release to archive? Check the test results first!"
-
-  - label: ':debian: Publish deb'
+  - label: ":debian: Publish deb"
+    depends_on: build
     command:
       - >
         aptly-upload
