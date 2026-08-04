@@ -22,11 +22,20 @@
 * is too short to assist some work loads.
 */
 
-/* An entry in the PROJ SRS cache */
+/*
+* An entry in the PROJ SRS cache. Entries are keyed either on a pair of
+* SRIDs (str_from/str_to are NULL) or, for the ST_Transform(geom,text,text)
+* forms, on the pair of projection definition strings themselves
+* (srid_from/srid_to are SRID_UNKNOWN).
+*/
 typedef struct struct_PROJSRSCacheItem
 {
 	int32_t srid_from;
 	int32_t srid_to;
+	char *str_from;
+	char *str_to;
+	size_t len_from;
+	size_t len_to;
 	uint64_t hits;
 	LWPROJ *projection;
 }
@@ -59,6 +68,7 @@ typedef struct srs_precision
 /* Prototypes */
 PROJSRSCache* GetPROJSRSCache();
 int lwproj_lookup(int32_t srid_from, int32_t srid_to, LWPROJ **pj);
+int lwproj_lookup_str(const char *str_from, const char *str_to, LWPROJ **pj);
 int lwproj_is_latlong(const LWPROJ *pj);
 int spheroid_init_from_srid(int32_t srid, SPHEROID *s);
 void srid_check_latlong(int32_t srid);

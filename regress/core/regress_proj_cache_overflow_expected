@@ -1,1 +1,7 @@
 13|112
+14|t|t
+15|200
+16|t
+17|t|t|t
+ERROR:  could not parse proj string 'invalid projection'
+19|t

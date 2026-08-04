@@ -61,6 +61,8 @@ typedef struct {
 /* Internal Cache API */
 static LWPROJ *
 AddToPROJSRSCache(PROJSRSCache *PROJCache, int32_t srid_from, int32_t srid_to);
+static LWPROJ *
+AddToPROJSRSCacheStr(PROJSRSCache *PROJCache, const char *str_from, const char *str_to);
 static void DeleteFromPROJSRSCache(PROJSRSCache *PROJCache, uint32_t position);
 
 static void
@@ -138,8 +140,38 @@ GetProjectionFromPROJCache(PROJSRSCache *cache, int32_t srid_from, int32_t srid_
 	uint32_t i;
 	for (i = 0; i < cache->PROJSRSCacheCount; i++)
 	{
+		/* Skip the string-keyed entries, their SRIDs are meaningless */
+		if (cache->PROJSRSCache[i].str_from)
+			continue;
+
 		if (cache->PROJSRSCache[i].srid_from == srid_from &&
 		    cache->PROJSRSCache[i].srid_to == srid_to)
+		{
+			cache->PROJSRSCache[i].hits++;
+			return cache->PROJSRSCache[i].projection;
+		}
+	}
+
+	return NULL;
+}
+
+static LWPROJ *
+GetProjectionFromPROJCacheStr(PROJSRSCache *cache, const char *str_from, const char *str_to)
+{
+	size_t len_from = strlen(str_from);
+	size_t len_to = strlen(str_to);
+	uint32_t i;
+	for (i = 0; i < cache->PROJSRSCacheCount; i++)
+	{
+		/* Skip the SRID-keyed entries, they have no strings to compare */
+		if (!cache->PROJSRSCache[i].str_from)
+			continue;
+
+		/* Lengths are cheap, only fall through to strcmp() when they match */
+		if (cache->PROJSRSCache[i].len_from == len_from &&
+		    cache->PROJSRSCache[i].len_to == len_to &&
+		    strcmp(cache->PROJSRSCache[i].str_from, str_from) == 0 &&
+		    strcmp(cache->PROJSRSCache[i].str_to, str_to) == 0)
 		{
 			cache->PROJSRSCache[i].hits++;
 			return cache->PROJSRSCache[i].projection;
@@ -365,6 +397,44 @@ pgstrs_get_entry(const PjStrs *strs, int n)
 }
 
 /**
+ * Reserve a slot for a new entry in the local PROJ SRS cache, evicting the
+ * least used entry if the cache is already full. Returns the slot index and
+ * sets *hits to the hit count the new entry should start life with.
+ */
+static uint32_t
+ReservePROJSRSCachePosition(PROJSRSCache *PROJCache, uint32_t *hits)
+{
+	/* If the cache is already full then find the least used element and delete it */
+	uint32_t cache_position = PROJCache->PROJSRSCacheCount;
+	*hits = 1;
+	if (cache_position == PROJ_CACHE_ITEMS)
+	{
+		cache_position = 0;
+		*hits = PROJCache->PROJSRSCache[0].hits;
+		for (uint32_t i = 1; i < PROJ_CACHE_ITEMS; i++)
+		{
+			if (PROJCache->PROJSRSCache[i].hits < *hits)
+			{
+				cache_position = i;
+				*hits = PROJCache->PROJSRSCache[i].hits;
+			}
+		}
+		DeleteFromPROJSRSCache(PROJCache, cache_position);
+		/* To avoid the element we are introduced now being evicted next (as
+		 * it would have 1 hit, being most likely the lower one) we reuse the
+		 * hits from the evicted position and add some extra buffer
+		 */
+		*hits += 5;
+	}
+	else
+	{
+		PROJCache->PROJSRSCacheCount++;
+	}
+
+	return cache_position;
+}
+
+/**
  * Add an entry to the local PROJ SRS cache. If we need to wrap around then
  * we must make sure the entry we choose to delete does not contain other_srid
  * which is the definition for the other half of the transformation.
@@ -414,32 +484,8 @@ AddToPROJSRSCache(PROJSRSCache *PROJCache, int32_t srid_from, int32_t srid_to)
 		return NULL;
 	}
 
-	/* If the cache is already full then find the least used element and delete it */
-	uint32_t cache_position = PROJCache->PROJSRSCacheCount;
-	uint32_t hits = 1;
-	if (cache_position == PROJ_CACHE_ITEMS)
-	{
-		cache_position = 0;
-		hits = PROJCache->PROJSRSCache[0].hits;
-		for (uint32_t i = 1; i < PROJ_CACHE_ITEMS; i++)
-		{
-			if (PROJCache->PROJSRSCache[i].hits < hits)
-			{
-				cache_position = i;
-				hits = PROJCache->PROJSRSCache[i].hits;
-			}
-		}
-		DeleteFromPROJSRSCache(PROJCache, cache_position);
-		/* To avoid the element we are introduced now being evicted next (as
-		 * it would have 1 hit, being most likely the lower one) we reuse the
-		 * hits from the evicted position and add some extra buffer
-		 */
-		hits += 5;
-	}
-	else
-	{
-		PROJCache->PROJSRSCacheCount++;
-	}
+	uint32_t hits;
+	uint32_t cache_position = ReservePROJSRSCachePosition(PROJCache, &hits);
 
 	POSTGIS_DEBUGF(3,
 		       "adding transform %d => %d aka \"%s\" => \"%s\" to query cache at index %d",
@@ -456,6 +502,59 @@ AddToPROJSRSCache(PROJSRSCache *PROJCache, int32_t srid_from, int32_t srid_to)
 	/* Store everything in new cache entry */
 	PROJCache->PROJSRSCache[cache_position].srid_from = srid_from;
 	PROJCache->PROJSRSCache[cache_position].srid_to = srid_to;
+	PROJCache->PROJSRSCache[cache_position].str_from = NULL;
+	PROJCache->PROJSRSCache[cache_position].str_to = NULL;
+	PROJCache->PROJSRSCache[cache_position].len_from = 0;
+	PROJCache->PROJSRSCache[cache_position].len_to = 0;
+	PROJCache->PROJSRSCache[cache_position].projection = projection;
+	PROJCache->PROJSRSCache[cache_position].hits = hits;
+
+	MemoryContextSwitchTo(oldContext);
+	return projection;
+}
+
+/**
+ * Add an entry to the local PROJ SRS cache, keyed on the pair of projection
+ * definition strings rather than on a pair of SRIDs. Failures are not
+ * cached, the caller is left to report them.
+ */
+static LWPROJ *
+AddToPROJSRSCacheStr(PROJSRSCache *PROJCache, const char *str_from, const char *str_to)
+{
+	MemoryContext oldContext;
+	LWPROJ *projection;
+	char *key_from, *key_to;
+	uint32_t hits, cache_position;
+
+	/* Everything we keep must outlive the caller's context */
+	oldContext = MemoryContextSwitchTo(PROJCache->PROJSRSCacheContext);
+
+	projection = lwproj_from_str(str_from, str_to);
+	if (!projection)
+	{
+		MemoryContextSwitchTo(oldContext);
+		return NULL;
+	}
+
+	/* Copy the keys before evicting, they are what we will match on later */
+	key_from = pstrdup(str_from);
+	key_to = pstrdup(str_to);
+
+	cache_position = ReservePROJSRSCachePosition(PROJCache, &hits);
+
+	POSTGIS_DEBUGF(3,
+		       "adding transform \"%s\" => \"%s\" to query cache at index %d",
+		       key_from,
+		       key_to,
+		       cache_position);
+
+	/* Store everything in new cache entry */
+	PROJCache->PROJSRSCache[cache_position].srid_from = SRID_UNKNOWN;
+	PROJCache->PROJSRSCache[cache_position].srid_to = SRID_UNKNOWN;
+	PROJCache->PROJSRSCache[cache_position].str_from = key_from;
+	PROJCache->PROJSRSCache[cache_position].str_to = key_to;
+	PROJCache->PROJSRSCache[cache_position].len_from = strlen(key_from);
+	PROJCache->PROJSRSCache[cache_position].len_to = strlen(key_to);
 	PROJCache->PROJSRSCache[cache_position].projection = projection;
 	PROJCache->PROJSRSCache[cache_position].hits = hits;
 
@@ -479,6 +578,20 @@ DeleteFromPROJSRSCache(PROJSRSCache *PROJCache, uint32_t position)
 	PROJCache->PROJSRSCache[position].projection = NULL;
 	PROJCache->PROJSRSCache[position].srid_from = SRID_UNKNOWN;
 	PROJCache->PROJSRSCache[position].srid_to = SRID_UNKNOWN;
+
+	/* String-keyed entries own their keys, free them too */
+	if (PROJCache->PROJSRSCache[position].str_from)
+	{
+		pfree(PROJCache->PROJSRSCache[position].str_from);
+		PROJCache->PROJSRSCache[position].str_from = NULL;
+	}
+	if (PROJCache->PROJSRSCache[position].str_to)
+	{
+		pfree(PROJCache->PROJSRSCache[position].str_to);
+		PROJCache->PROJSRSCache[position].str_to = NULL;
+	}
+	PROJCache->PROJSRSCache[position].len_from = 0;
+	PROJCache->PROJSRSCache[position].len_to = 0;
 }
 
 
@@ -496,6 +609,28 @@ lwproj_lookup(int32_t srid_from, int32_t srid_to, LWPROJ **pj)
 	if (*pj == NULL)
 	{
 		*pj = AddToPROJSRSCache(proj_cache, srid_from, srid_to);
+	}
+
+	return *pj != NULL;
+}
+
+int
+lwproj_lookup_str(const char *str_from, const char *str_to, LWPROJ **pj)
+{
+	/* get or initialize the cache for this round */
+	PROJSRSCache* proj_cache = GetPROJSRSCache();
+	if (!proj_cache)
+		return LW_FAILURE;
+
+	if (!(str_from && str_to))
+		return LW_FAILURE;
+
+	postgis_initialize_cache();
+	/* Add the transform to the cache if it's not already there */
+	*pj = GetProjectionFromPROJCacheStr(proj_cache, str_from, str_to);
+	if (*pj == NULL)
+	{
+		*pj = AddToPROJSRSCacheStr(proj_cache, str_from, str_to);
 	}
 
 	return *pj != NULL;
