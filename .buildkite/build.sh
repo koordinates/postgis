@@ -40,7 +40,7 @@ time docker run \
   -w "/src" \
   -e DEBEMAIL \
   -e DEBFULLNAME \
-  "${ECR}/ci-tools:latest" \
+  "${ECR}/ci-tools:master.latest" \
     dch --distribution jammy --newversion "${DEB_VERSION}" "Koordinates CI build of ${BUILDKITE_COMMIT}: branch=${BUILDKITE_BRANCH} tag=${BUILDKITE_TAG-}"
 
 BUILD_CONTAINER="build-${BUILDKITE_JOB_ID}"
@@ -61,5 +61,5 @@ time docker run \
   -v "$(pwd):/src" \
   -e "GPG_KEY=${APT_GPG_KEY}" \
   -w "/src" \
-  "${ECR}/ci-tools:latest" \
+  "${ECR}/ci-tools:master.latest" \
     sign-debs "/src/build-jammy/*.deb"

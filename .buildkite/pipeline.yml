@@ -1,13 +1,29 @@
 ---
 steps:
-  - label: ":debian: Build & Package & Test"
-    key: build
+  - label: ":debian: Build & Package & Test (amd64)"
+    key: build-amd64
     command: ".buildkite/build.sh"
+    agents:
+      queue: "default"
+    artifact_paths:
+      - "build-jammy/*"
+
+  # dandelion-test-data builds an arm64 image as well as amd64, so it needs
+  # arm64 debs to install. The architecture-independent (_all.deb) packages are
+  # built by both legs; whichever lands second in the publish step's download
+  # wins, which is fine as they only differ by build timestamp.
+  - label: ":debian: Build & Package & Test (arm64)"
+    key: build-arm64
+    command: ".buildkite/build.sh"
+    agents:
+      queue: "default_arm64"
     artifact_paths:
       - "build-jammy/*"
 
   - label: ":debian: Publish deb"
-    depends_on: build
+    depends_on:
+      - build-amd64
+      - build-arm64
     command:
       - >
         aptly-upload
@@ -22,7 +38,7 @@ steps:
       artifacts#v1.2.0:
         download: "build-jammy/*.deb"
       docker#v1.4.0:
-        image: "${ECR}/ci-tools"
+        image: "${ECR}/ci-tools:master.latest"
         always-pull: true
         workdir: /src
         environment:
