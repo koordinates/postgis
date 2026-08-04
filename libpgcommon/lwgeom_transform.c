@@ -575,6 +575,10 @@ DeleteFromPROJSRSCache(PROJSRSCache *PROJCache, uint32_t position)
 	 * waiting for the parent memory context to exit */
 	PROJSRSDestroyPJ(PROJCache->PROJSRSCache[position].projection);
 
+	/* PROJSRSDestroyPJ only frees the PJ, not the LWPROJ that wraps it. That is
+	 * ours, allocated in PROJSRSCacheContext, so free it here too rather than
+	 * leaking it until backend exit. */
+	pfree(PROJCache->PROJSRSCache[position].projection);
 	PROJCache->PROJSRSCache[position].projection = NULL;
 	PROJCache->PROJSRSCache[position].srid_from = SRID_UNKNOWN;
 	PROJCache->PROJSRSCache[position].srid_to = SRID_UNKNOWN;
