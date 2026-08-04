@@ -120,6 +120,7 @@ Datum transform_geom(PG_FUNCTION_ARGS)
 {
 	GSERIALIZED *gser, *gser_result=NULL;
 	LWGEOM *geom;
+	LWPROJ *pj;
 	char *input_srs, *output_srs;
 	int32 result_srid;
 	int rv;
@@ -134,7 +135,22 @@ Datum transform_geom(PG_FUNCTION_ARGS)
 
 	/* now we have a geometry, and input/output PJ structs. */
 	geom = lwgeom_from_gserialized(gser);
-	rv = lwgeom_transform_from_str(geom, input_srs, output_srs);
+
+	/*
+	* Building the transformation is far more expensive than applying it,
+	* so keep it in the backend-lifetime cache, keyed on the definition
+	* strings. The cache owns the LWPROJ, so it must not be destroyed here.
+	*/
+	postgis_initialize_cache();
+	if (lwproj_lookup_str(input_srs, output_srs, &pj) == LW_FAILURE)
+	{
+		/* Uncacheable, run the uncached path to raise its detailed error */
+		rv = lwgeom_transform_from_str(geom, input_srs, output_srs);
+	}
+	else
+	{
+		rv = lwgeom_transform(geom, pj);
+	}
 	pfree(input_srs);
 	pfree(output_srs);
 
