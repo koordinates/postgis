@@ -40,7 +40,7 @@ time docker run \
   -w "/src" \
   -e DEBEMAIL \
   -e DEBFULLNAME \
-  "${ECR}/ci-tools:latest" \
+  "${ECR}/ci-tools:master.latest" \
     dch --distribution jammy --newversion "${DEB_VERSION}" "Koordinates CI build of ${BUILDKITE_COMMIT}: branch=${BUILDKITE_BRANCH} tag=${BUILDKITE_TAG-}"
 
 BUILD_CONTAINER="build-${BUILDKITE_JOB_ID}"
@@ -57,9 +57,22 @@ time docker run \
     /kx/buildscripts/build_binary_package.sh -uc -us
 
 echo "--- Signing debian archives ..."
+# docker doesn't run a shell, so the glob has to be expanded here. sign-debs used
+# to do it for us by way of dpkg-sig; it now calls debsigs, which doesn't glob.
+DEB_PATHS=()
+for deb in build-jammy/*.deb; do
+  # an unmatched glob stays literal, so skip anything that isn't a real file
+  [ -f "${deb}" ] || continue
+  DEB_PATHS+=("/src/${deb}")
+done
+if [ "${#DEB_PATHS[@]}" -eq 0 ]; then
+  echo "No .deb files in build-jammy/ to sign" >&2
+  exit 1
+fi
+
 time docker run \
   -v "$(pwd):/src" \
   -e "GPG_KEY=${APT_GPG_KEY}" \
   -w "/src" \
-  "${ECR}/ci-tools:latest" \
-    sign-debs "/src/build-jammy/*.deb"
+  "${ECR}/ci-tools:master.latest" \
+    sign-debs "${DEB_PATHS[@]}"
